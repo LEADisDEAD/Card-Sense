@@ -7,8 +7,11 @@ from PIL import Image
 import timm
 import os
 import numpy as np
+import cv2
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-# Load device
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define the model
@@ -24,7 +27,7 @@ class SimpleCardClassifier(nn.Module):
         x = x.view(x.size(0), -1)
         return self.classifier(x)
 
-# Load model
+# Loading model
 @st.cache_resource
 def load_model():
     model = SimpleCardClassifier()
@@ -49,7 +52,7 @@ transform = transforms.Compose([
 ])
 
 
-# Prediction function
+# Prediction
 def predict(model, image_tensor):
     with torch.no_grad():
         output = model(image_tensor)
@@ -59,7 +62,7 @@ def predict(model, image_tensor):
 model = load_model()
 class_names = get_class_names()
 
-# --- Streamlit UI ---
+# Ui hai
 st.title("🃏 Playing Card Classifier")
 st.markdown("---")
 uploaded = None
@@ -88,7 +91,7 @@ if uploaded is not None:
 
     st.success(f"🃏 Predicted: **{class_name}** ({confidence * 100:.2f}%)")
 
-    # Optional: Show top-3 predictions
+    # top-3 predictionsss
     topk = torch.topk(torch.tensor(probs), 3)
     st.subheader("Top-3 Predictions")
     for i in range(3):
@@ -99,7 +102,7 @@ elif option == "Live Prediction (CV)":
     import cv2
     import time
 
-    stframe = st.empty()  # Streamlit image placeholder
+    stframe = st.empty()
 
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
@@ -112,7 +115,21 @@ elif option == "Live Prediction (CV)":
                 st.error("Failed to grab frame.")
                 break
 
-            # Preprocess for model
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+
+
+            if len(faces) > 0:
+                cv2.putText(frame, "🃏 Joker Detected!", (50, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                stframe.image(frame, channels="RGB")
+                time.sleep(0.1)
+                continue
+
+            # Preprocess
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_img = Image.fromarray(img).convert("RGB")
             image_tensor = transform(pil_img).unsqueeze(0).to(device)
@@ -123,11 +140,11 @@ elif option == "Live Prediction (CV)":
             class_name = class_names[top_idx]
             confidence = probs[top_idx]
 
-            # Draw prediction
+
             cv2.putText(frame, f"{class_name} ({confidence * 100:.2f}%)",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            # Convert BGR to RGB for display
+
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             stframe.image(frame, channels="RGB")
 
@@ -135,7 +152,7 @@ elif option == "Live Prediction (CV)":
 
         cap.release()
 
-# --- About the App ---
+#About the App
 with st.expander("📄 About This App"):
     st.markdown("""
     This is an intelligent Playing Card Classifier built with:
